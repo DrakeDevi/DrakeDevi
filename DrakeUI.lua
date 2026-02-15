@@ -2,12 +2,15 @@
 --//                DrakeUI Framework                  //
 --//      Developed by DrakeDevi & AxlceBlox           //
 --//====================================================--
+
 --// Services
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
+local HttpService = game:GetService("HttpService")
+local Lighting = game:GetService("Lighting")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -20,6 +23,9 @@ DrakeUI.__index = DrakeUI
 DrakeUI.Windows = {}
 DrakeUI.Flags = {}
 DrakeUI.Theme = {}
+DrakeUI.Elements = {}
+DrakeUI.Connections = {}
+DrakeUI.TweenCache = {}
 
 --// Default Theme
 DrakeUI.Theme = {
@@ -93,9 +99,13 @@ function DrakeUI:CreateWindow(settings)
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     })
 
-    pcall(function()
-        gui.Parent = CoreGui
-    end)
+    --// Safe Parent Logic
+    if not pcall(function() gui.Parent = CoreGui end) then
+        gui.Parent = PlayerGui
+    end
+    
+    --// Store global reference for Notifications/Watermarks
+    DrakeUI.ScreenGui = gui
 
     --// Main Frame
     local main = Create("Frame", {
@@ -192,7 +202,6 @@ end
 --//                 TAB SYSTEM                        //
 --//====================================================--
 
---// Tab Creation
 function DrakeUI:CreateTab(window, settings)
     settings = settings or {}
     local tab = {}
@@ -309,7 +318,6 @@ end
 
 --// Section (Optional Divider Title)
 function DrakeUI:CreateSection(tab, titleText)
-
     local section = Instance.new("TextLabel")
     section.Size = UDim2.new(1, -10, 0, 28)
     section.BackgroundTransparency = 1
@@ -321,10 +329,8 @@ function DrakeUI:CreateSection(tab, titleText)
     section.Parent = tab.Page
 
     DrakeUI:AnimateElement(section)
-
     return section
 end
-
 
 --// Button
 function DrakeUI:CreateButton(tab, settings)
@@ -368,10 +374,9 @@ function DrakeUI:CreateButton(tab, settings)
     end)
     
     DrakeUI:AnimateElement(button)
-    
+    DrakeUI:RegisterElement("Button_"..tostring(math.random()), button, "Button")
     return button
 end
-
 
 --// Toggle
 function DrakeUI:CreateToggle(tab, settings)
@@ -454,7 +459,7 @@ function DrakeUI:CreateToggle(tab, settings)
     
     UpdateToggle()
     DrakeUI:AnimateElement(holder)
-    
+    DrakeUI:RegisterElement(settings.Flag or settings.Name, holder, "Toggle")
     return holder
 end
 
@@ -507,6 +512,7 @@ function DrakeUI:CreateDropdown(tab, settings)
     dropFrame.BackgroundColor3 = DrakeUI.Theme.Background
     dropFrame.BorderSizePixel = 0
     dropFrame.ClipsDescendants = true
+    dropFrame.ZIndex = 5
     
     Instance.new("UICorner", dropFrame).CornerRadius = UDim.new(0, 8)
     Instance.new("UIStroke", dropFrame).Color = DrakeUI.Theme.Stroke
@@ -539,6 +545,7 @@ function DrakeUI:CreateDropdown(tab, settings)
         optionBtn.TextColor3 = DrakeUI.Theme.Text
         optionBtn.BorderSizePixel = 0
         optionBtn.Parent = dropFrame
+        optionBtn.ZIndex = 6
         
         Instance.new("UICorner", optionBtn).CornerRadius = UDim.new(0, 6)
         
@@ -555,9 +562,9 @@ function DrakeUI:CreateDropdown(tab, settings)
     end
     
     DrakeUI:AnimateElement(holder)
+    DrakeUI:RegisterElement(settings.Flag or settings.Name, holder, "Dropdown")
     return holder
 end
-
 
 --// Slider
 function DrakeUI:CreateSlider(tab, settings)
@@ -617,7 +624,7 @@ function DrakeUI:CreateSlider(tab, settings)
         end
     end)
     
-    game:GetService("UserInputService").InputChanged:Connect(function(input)
+    UserInputService.InputChanged:Connect(function(input)
         if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
             local percent = math.clamp(
                 (input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X,
@@ -637,9 +644,9 @@ function DrakeUI:CreateSlider(tab, settings)
     end)
     
     DrakeUI:AnimateElement(holder)
+    DrakeUI:RegisterElement(settings.Flag or settings.Name, holder, "Slider")
     return holder
 end
-
 
 --// Input Box
 function DrakeUI:CreateInput(tab, settings)
@@ -688,6 +695,7 @@ function DrakeUI:CreateInput(tab, settings)
     end)
     
     DrakeUI:AnimateElement(holder)
+    DrakeUI:RegisterElement(settings.Flag or settings.Name, holder, "Input")
     return holder
 end
 
@@ -724,6 +732,7 @@ DrakeUI.Themes = {
 function DrakeUI:SetTheme(themeName)
     if DrakeUI.Themes[themeName] then
         DrakeUI.Theme = DrakeUI.Themes[themeName]
+        DrakeUI:RefreshTheme()
         DrakeUI:Notify("Theme switched to "..themeName, 3)
     end
 end
@@ -734,6 +743,7 @@ end
 
 function DrakeUI:CreateNotificationHolder()
     if DrakeUI.NotificationHolder then return end
+    if not DrakeUI.ScreenGui then return end -- Check for GUI existence
     
     local holder = Instance.new("Frame")
     holder.Size = UDim2.new(0, 300, 1, -20)
@@ -749,6 +759,7 @@ function DrakeUI:CreateNotificationHolder()
 end
 
 function DrakeUI:Notify(text, duration)
+    if not DrakeUI.ScreenGui then return end
     duration = duration or 3
     DrakeUI:CreateNotificationHolder()
     
@@ -796,8 +807,6 @@ end
 
 DrakeUI.ConfigFolder = "DrakeUIConfigs"
 
-local HttpService = game:GetService("HttpService")
-
 function DrakeUI:SaveConfig(name)
     if not writefile then
         DrakeUI:Notify("Executor does not support writefile.", 3)
@@ -831,6 +840,7 @@ function DrakeUI:LoadConfig(name)
     
     for flag, value in pairs(decoded) do
         DrakeUI.Flags[flag] = value
+        DrakeUI:SetFlag(flag, value)
     end
     
     DrakeUI:Notify("Config loaded: "..name, 3)
@@ -850,7 +860,9 @@ end
 task.spawn(function()
     task.wait(1)
     if DrakeUI.AutoLoadConfig then
-        DrakeUI:LoadConfig(DrakeUI.AutoLoadConfig)
+        pcall(function()
+             DrakeUI:LoadConfig(DrakeUI.AutoLoadConfig)
+        end)
     end
 end)
 
@@ -859,7 +871,6 @@ end)
 --//====================================================--
 
 function DrakeUI:AddMinimize(window)
-
     local button = Instance.new("TextButton")
     button.Size = UDim2.fromOffset(30, 30)
     button.Position = UDim2.new(1, -35, 0, 5)
@@ -889,6 +900,8 @@ end
 --//====================================================--
 
 function DrakeUI:AddWatermark(text)
+    if not DrakeUI.ScreenGui then return end
+    
     local mark = Instance.new("TextLabel")
     mark.Size = UDim2.fromOffset(250, 25)
     mark.Position = UDim2.new(0, 10, 1, -35)
@@ -908,6 +921,7 @@ end
 --//====================================================--
 
 function DrakeUI:AddFPSCounter()
+    if not DrakeUI.ScreenGui then return end
 
     local fpsLabel = Instance.new("TextLabel")
     fpsLabel.Size = UDim2.fromOffset(120, 25)
@@ -918,7 +932,6 @@ function DrakeUI:AddFPSCounter()
     fpsLabel.TextColor3 = DrakeUI.Theme.Accent
     fpsLabel.Parent = DrakeUI.ScreenGui
 
-    local RunService = game:GetService("RunService")
     local last = tick()
     local frames = 0
 
@@ -960,7 +973,7 @@ function DrakeUI:CreateKeybind(tab, settings)
         listening = true
     end)
     
-    game:GetService("UserInputService").InputBegan:Connect(function(input)
+    UserInputService.InputBegan:Connect(function(input)
         if listening and input.KeyCode ~= Enum.KeyCode.Unknown then
             currentKey = input.KeyCode
             holder.Text = settings.Name.." ["..currentKey.Name.."]"
@@ -977,6 +990,7 @@ function DrakeUI:CreateKeybind(tab, settings)
     end)
     
     DrakeUI:AnimateElement(holder)
+    DrakeUI:RegisterElement(settings.Flag or settings.Name, holder, "Keybind")
 end
 
 --//====================================================--
@@ -986,7 +1000,7 @@ end
 function DrakeUI:EnableBlur()
     local blur = Instance.new("BlurEffect")
     blur.Size = 15
-    blur.Parent = game:GetService("Lighting")
+    blur.Parent = Lighting
     
     DrakeUI:Notify("Blur enabled", 3)
 end
@@ -1008,10 +1022,6 @@ end
 --//====================================================--
 --//                DrakeUI CORE ENGINE                  //
 --//====================================================--
-
--- Element Registry
-DrakeUI.Elements = {}
-DrakeUI.Connections = {}
 
 --// Centralized connection manager
 function DrakeUI:BindConnection(signal, func)
@@ -1086,17 +1096,6 @@ function DrakeUI:RefreshTheme()
     DrakeUI:Notify("Theme Refreshed", 2)
 end
 
--- Override SetTheme to auto refresh
-local oldSetTheme = DrakeUI.SetTheme
-
-function DrakeUI:SetTheme(themeName)
-    if DrakeUI.Themes[themeName] then
-        DrakeUI.Theme = DrakeUI.Themes[themeName]
-        DrakeUI:RefreshTheme()
-        DrakeUI:Notify("Elite Theme switched: "..themeName, 3)
-    end
-end
-
 --//====================================================--
 --//           DrakeUI TAB INDICATOR SYSTEM              //
 --//====================================================--
@@ -1118,24 +1117,6 @@ function DrakeUI:AddTabIndicator(window)
             }):Play()
         end)
     end
-end
-
---//====================================================--
---//           DrakeUI CONFIG AUTO SYNC                  //
---//====================================================--
-
-function DrakeUI:SyncLoadedConfig()
-    for flag, value in pairs(DrakeUI.Flags) do
-        DrakeUI:SetFlag(flag, value)
-    end
-end
-
--- Hook into LoadConfig
-local oldLoad = DrakeUI.LoadConfig
-
-function DrakeUI:LoadConfig(name)
-    oldLoad(self, name)
-    DrakeUI:SyncLoadedConfig()
 end
 
 --//====================================================--
@@ -1180,6 +1161,8 @@ function DrakeUI:OpenConsole()
     if DrakeUI.ConsoleVisible then return end
     DrakeUI.ConsoleVisible = true
 
+    if not DrakeUI.ScreenGui then return end
+
     local console = Instance.new("Frame")
     console.Size = UDim2.new(0, 500, 0, 300)
     console.Position = UDim2.new(0.5, -250, 0.5, -150)
@@ -1208,8 +1191,6 @@ end
 --//====================================================--
 --//          DrakeUI ENCRYPTED CONFIG SYSTEM            //
 --//====================================================--
-
-local HttpService = game:GetService("HttpService")
 
 local function SimpleEncrypt(text)
     return HttpService:Base64Encode(text)
@@ -1245,7 +1226,7 @@ function DrakeUI:LoadConfigSecure(name)
     local decoded = HttpService:JSONDecode(decrypted)
 
     DrakeUI.Flags = decoded
-    DrakeUI:SyncLoadedConfig()
+    DrakeUI:SyncLoadedConfig() -- Ensures flags sync with UI
 
     DrakeUI:Notify("Encrypted config loaded.", 3)
 end
@@ -1275,8 +1256,6 @@ end
 --//          DrakeUI TWEEN ENGINE V2                    //
 --//====================================================--
 
-DrakeUI.TweenCache = {}
-
 function DrakeUI:SmartTween(object, time, properties)
     if DrakeUI.TweenCache[object] then
         DrakeUI.TweenCache[object]:Cancel()
@@ -1291,3 +1270,5 @@ function DrakeUI:SmartTween(object, time, properties)
     DrakeUI.TweenCache[object] = tween
     tween:Play()
 end
+
+return DrakeUI
