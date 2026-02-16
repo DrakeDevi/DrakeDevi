@@ -1,0 +1,137 @@
+-- Simple UI Library
+
+local UILib = {}
+
+function UILib.new(titleText, creditsText)
+    local Players = game:GetService("Players")
+    local UIS = game:GetService("UserInputService")
+
+    local Player = Players.LocalPlayer
+
+    -- GUI
+    local Gui = Instance.new("ScreenGui")
+    Gui.Name = "UILibrary"
+    Gui.ResetOnSpawn = false
+    Gui.Parent = Player:WaitForChild("PlayerGui")
+
+    -- MAIN FRAME
+    local Main = Instance.new("Frame", Gui)
+    Main.Size = UDim2.new(0, 200, 0, 36)
+    Main.Position = UDim2.new(0.5, -100, 0.35, 0)
+    Main.BackgroundColor3 = Color3.fromRGB(25,25,25)
+    Main.BorderSizePixel = 0
+    Main.Active = true
+    Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
+
+    -- TITLE
+    local Title = Instance.new("TextButton", Main)
+    Title.Size = UDim2.new(1, -10, 0, 36)
+    Title.Position = UDim2.new(0, 5, 0, 0)
+    Title.BackgroundTransparency = 1
+    Title.Text = titleText
+    Title.Font = Enum.Font.GothamBold
+    Title.TextSize = 12
+    Title.TextColor3 = Color3.fromRGB(235,235,235)
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+
+    -- CONTENT
+    local Content = Instance.new("Frame", Main)
+    Content.Position = UDim2.new(0, 0, 0, 36)
+    Content.Size = UDim2.new(1, 0, 0, 0)
+    Content.BackgroundColor3 = Color3.fromRGB(35,35,35)
+    Content.BorderSizePixel = 0
+    Content.Visible = false
+    Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 8)
+
+    -- LAYOUT
+    local Layout = Instance.new("UIListLayout", Content)
+    Layout.Padding = UDim.new(0, 6)
+    Layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+    -- CREDITS
+    local Credits = Instance.new("TextLabel", Content)
+    Credits.Size = UDim2.new(1, -8, 0, 12)
+    Credits.BackgroundTransparency = 1
+    Credits.Text = creditsText
+    Credits.Font = Enum.Font.Gotham
+    Credits.TextSize = 9
+    Credits.TextColor3 = Color3.fromRGB(150,150,150)
+    Credits.TextXAlignment = Enum.TextXAlignment.Right
+    Credits.LayoutOrder = 999
+
+    -- DROPDOWN
+    Title.MouseButton1Click:Connect(function()
+        Content.Visible = not Content.Visible
+        if Content.Visible then
+            Main.Size = UDim2.new(0, 200, 0, Content.AbsoluteContentSize.Y + 46)
+        else
+            Main.Size = UDim2.new(0, 200, 0, 36)
+        end
+    end)
+
+    -- DRAGGING
+    local dragging = false
+    local dragStart
+    local startPos
+
+    local function updateDrag(input)
+        local delta = input.Position - dragStart
+        Main.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+
+    Main.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = Main.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    UIS.InputChanged:Connect(function(input)
+        if dragging and (
+            input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch
+        ) then
+            updateDrag(input)
+        end
+    end)
+
+    -- BUTTON FUNCTION
+    function UILib:AddButton(text, callback)
+        local Button = Instance.new("TextButton")
+        Button.Size = UDim2.new(1, -12, 0, 28)
+        Button.BackgroundColor3 = Color3.fromRGB(55,55,55)
+        Button.Text = text
+        Button.Font = Enum.Font.Gotham
+        Button.TextSize = 11
+        Button.TextColor3 = Color3.fromRGB(220,220,220)
+        Button.BorderSizePixel = 0
+        Button.LayoutOrder = 1
+        Button.Parent = Content
+        Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 6)
+
+        Button.MouseButton1Click:Connect(callback)
+
+        -- resize menu
+        task.wait()
+        if Content.Visible then
+            Main.Size = UDim2.new(0, 200, 0, Content.AbsoluteContentSize.Y + 46)
+        end
+    end
+
+    return UILib
+end
+
+return UILib
