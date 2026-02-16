@@ -1,137 +1,126 @@
--- Simple UI Library
+-- /////////////////////////////////////////////////////////////
+-- //                 UI LIBRARY SOURCE CODE                  //
+-- /////////////////////////////////////////////////////////////
 
-local UILib = {}
+local Library = {}
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local Player = Players.LocalPlayer
 
-function UILib.new(titleText, creditsText)
-    local Players = game:GetService("Players")
-    local UIS = game:GetService("UserInputService")
-
-    local Player = Players.LocalPlayer
-
-    -- GUI
-    local Gui = Instance.new("ScreenGui")
-    Gui.Name = "UILibrary"
-    Gui.ResetOnSpawn = false
-    Gui.Parent = Player:WaitForChild("PlayerGui")
-
-    -- MAIN FRAME
-    local Main = Instance.new("Frame", Gui)
-    Main.Size = UDim2.new(0, 200, 0, 36)
-    Main.Position = UDim2.new(0.5, -100, 0.35, 0)
-    Main.BackgroundColor3 = Color3.fromRGB(25,25,25)
-    Main.BorderSizePixel = 0
-    Main.Active = true
-    Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
-
-    -- TITLE
-    local Title = Instance.new("TextButton", Main)
-    Title.Size = UDim2.new(1, -10, 0, 36)
-    Title.Position = UDim2.new(0, 5, 0, 0)
-    Title.BackgroundTransparency = 1
-    Title.Text = titleText
-    Title.Font = Enum.Font.GothamBold
-    Title.TextSize = 12
-    Title.TextColor3 = Color3.fromRGB(235,235,235)
-    Title.TextXAlignment = Enum.TextXAlignment.Left
-
-    -- CONTENT
-    local Content = Instance.new("Frame", Main)
-    Content.Position = UDim2.new(0, 0, 0, 36)
-    Content.Size = UDim2.new(1, 0, 0, 0)
-    Content.BackgroundColor3 = Color3.fromRGB(35,35,35)
-    Content.BorderSizePixel = 0
-    Content.Visible = false
-    Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 8)
-
-    -- LAYOUT
-    local Layout = Instance.new("UIListLayout", Content)
-    Layout.Padding = UDim.new(0, 6)
-    Layout.SortOrder = Enum.SortOrder.LayoutOrder
-
-    -- CREDITS
-    local Credits = Instance.new("TextLabel", Content)
-    Credits.Size = UDim2.new(1, -8, 0, 12)
-    Credits.BackgroundTransparency = 1
-    Credits.Text = creditsText
-    Credits.Font = Enum.Font.Gotham
-    Credits.TextSize = 9
-    Credits.TextColor3 = Color3.fromRGB(150,150,150)
-    Credits.TextXAlignment = Enum.TextXAlignment.Right
-    Credits.LayoutOrder = 999
-
-    -- DROPDOWN
-    Title.MouseButton1Click:Connect(function()
-        Content.Visible = not Content.Visible
-        if Content.Visible then
-            Main.Size = UDim2.new(0, 200, 0, Content.AbsoluteContentSize.Y + 46)
-        else
-            Main.Size = UDim2.new(0, 200, 0, 36)
-        end
-    end)
-
-    -- DRAGGING
-    local dragging = false
-    local dragStart
-    local startPos
-
-    local function updateDrag(input)
-        local delta = input.Position - dragStart
-        Main.Position = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + delta.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
-        )
-    end
-
-    Main.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = Main.Position
-
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-
-    UIS.InputChanged:Connect(function(input)
-        if dragging and (
-            input.UserInputType == Enum.UserInputType.MouseMovement
-            or input.UserInputType == Enum.UserInputType.Touch
-        ) then
-            updateDrag(input)
-        end
-    end)
-
-    -- BUTTON FUNCTION
-    function UILib:AddButton(text, callback)
-        local Button = Instance.new("TextButton")
-        Button.Size = UDim2.new(1, -12, 0, 28)
-        Button.BackgroundColor3 = Color3.fromRGB(55,55,55)
-        Button.Text = text
-        Button.Font = Enum.Font.Gotham
-        Button.TextSize = 11
-        Button.TextColor3 = Color3.fromRGB(220,220,220)
-        Button.BorderSizePixel = 0
-        Button.LayoutOrder = 1
-        Button.Parent = Content
-        Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 6)
-
-        Button.MouseButton1Click:Connect(callback)
-
-        -- resize menu
-        task.wait()
-        if Content.Visible then
-            Main.Size = UDim2.new(0, 200, 0, Content.AbsoluteContentSize.Y + 46)
-        end
-    end
-
-    return UILib
+-- [1] Rainbow Text Logic
+local function ApplyRainbow(TextLabel)
+	task.spawn(function()
+		while true do
+			local hue = tick() % 5 / 5 
+			local color = Color3.fromHSV(hue, 1, 1) 
+			TextLabel.TextColor3 = color
+			RunService.Heartbeat:Wait()
+		end
+	end)
 end
 
-return UILib
+-- [2] Dragging Logic
+local function MakeDraggable(Frame)
+	local dragging, dragInput, dragStart, startPos
+	Frame.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = Frame.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then dragging = false end
+			end)
+		end
+	end)
+	Frame.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+	end)
+	UIS.InputChanged:Connect(function(input)
+		if input == dragInput and dragging then
+			local delta = input.Position - dragStart
+			Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+		end
+	end)
+end
+
+function Library:Create(Config)
+	-- Variables
+	local TitleText = Config.Title or "UI Library"
+	local CreatorText = Config.Creator or "Unknown"
+	
+	-- GUI Creation
+	local Gui = Instance.new("ScreenGui")
+	Gui.Name = "CleanLibrary_"..math.random(1,1000)
+	Gui.ResetOnSpawn = false
+	Gui.Parent = Player:WaitForChild("PlayerGui")
+
+	local Main = Instance.new("Frame", Gui)
+	Main.Size = UDim2.new(0, 220, 0, 0)
+	Main.Position = UDim2.new(0.5, -110, 0.4, 0)
+	Main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+	Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
+	MakeDraggable(Main)
+
+	-- Header
+	local TitleLabel = Instance.new("TextLabel", Main)
+	TitleLabel.Size = UDim2.new(1, -10, 0, 30)
+	TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+	TitleLabel.BackgroundTransparency = 1
+	TitleLabel.Text = TitleText
+	TitleLabel.Font = Enum.Font.GothamBold
+	TitleLabel.TextSize = 14
+	TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+	-- Rainbow Creator Name
+	local CreatorLabel = Instance.new("TextLabel", Main)
+	CreatorLabel.Size = UDim2.new(1, -10, 0, 15)
+	CreatorLabel.Position = UDim2.new(0, 0, 0, 25)
+	CreatorLabel.BackgroundTransparency = 1
+	CreatorLabel.Text = "Created by " .. CreatorText
+	CreatorLabel.Font = Enum.Font.Gotham
+	CreatorLabel.TextSize = 10
+	CreatorLabel.TextXAlignment = Enum.TextXAlignment.Right
+	ApplyRainbow(CreatorLabel)
+
+	-- Container
+	local Container = Instance.new("Frame", Main)
+	Container.Position = UDim2.new(0, 0, 0, 45)
+	Container.Size = UDim2.new(1, 0, 0, 0)
+	Container.BackgroundTransparency = 1
+
+	local UIList = Instance.new("UIListLayout", Container)
+	UIList.SortOrder = Enum.SortOrder.LayoutOrder
+	UIList.Padding = UDim.new(0, 5)
+	UIList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+	-- Resize Logic
+	local function UpdateSize()
+		local ContentHeight = UIList.AbsoluteContentSize.Y
+		Main.Size = UDim2.new(0, 220, 0, 55 + ContentHeight)
+	end
+	UIList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateSize)
+
+	-- Return Object
+	local Window = {}
+	
+	function Window:AddButton(text, callback)
+		local Btn = Instance.new("TextButton", Container)
+		Btn.Size = UDim2.new(0.9, 0, 0, 30)
+		Btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+		Btn.Text = text
+		Btn.Font = Enum.Font.Gotham
+		Btn.TextColor3 = Color3.fromRGB(220, 220, 220)
+		Btn.TextSize = 12
+		Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
+		
+		Btn.MouseButton1Click:Connect(function()
+			pcall(callback)
+		end)
+		UpdateSize()
+	end
+	
+	UpdateSize()
+	return Window
+end
