@@ -78,12 +78,12 @@ function Library:CreateWindow(Config)
     -- Credits
     local Credits = Instance.new("TextLabel")
     Credits.Parent = Main
-    Credits.Size = UDim2.new(1, -8, 0, 12)
-    Credits.Position = UDim2.new(0, 4, 1, -14)
+    Credits.Size = UDim2.new(1, -8, 0, 17)
+    Credits.Position = UDim2.new(0, 4, 1, -18)
     Credits.BackgroundTransparency = 1
     Credits.Text = CreatorName
     Credits.Font = Enum.Font.Gotham
-    Credits.TextSize = 9
+    Credits.TextSize = 11
     Credits.TextXAlignment = Enum.TextXAlignment.Right
 
     -- Rainbow Credits
@@ -192,12 +192,82 @@ function Library:CreateWindow(Config)
         end)
     end
 
+function Window:AddToggle(text, default, callback)
+    local toggled = default or false
+
+    local ToggleButton = Instance.new("TextButton")
+    ToggleButton.Size = UDim2.new(1, 0, 0, 30)
+    ToggleButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    ToggleButton.TextColor3 = Color3.new(1,1,1)
+    ToggleButton.Text = text .. " : " .. (toggled and "ON" or "OFF")
+    ToggleButton.Parent = Content
+
+    ToggleButton.MouseButton1Click:Connect(function()
+        toggled = not toggled
+        ToggleButton.Text = text .. " : " .. (toggled and "ON" or "OFF")
+
+        if callback then
+            callback(toggled)
+        end
+    end)
+end
+  
     -- Update Title
     function Window:UpdateTitle(newTitle)
         Header.Text = tostring(newTitle)
     end
 
     return Window
+end
+
+function Library:Notify(options)
+    local text = options.Text or "Notification"
+    local duration = options.Duration or 3
+    local icon = options.Icon
+    local position = options.Position or "BottomRight"
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "CustomNotification"
+    screenGui.Parent = game.Players.LocalPlayer.PlayerGui
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 250, 0, 60)
+    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    frame.BorderSizePixel = 0
+    frame.Parent = screenGui
+
+    -- Position logic
+    if position == "TopLeft" then
+        frame.Position = UDim2.new(0, 10, 0, 10)
+    elseif position == "TopRight" then
+        frame.Position = UDim2.new(1, -260, 0, 10)
+    elseif position == "BottomLeft" then
+        frame.Position = UDim2.new(0, 10, 1, -70)
+    else -- BottomRight default
+        frame.Position = UDim2.new(1, -260, 1, -70)
+    end
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -60, 1, 0)
+    label.Position = UDim2.new(0, 50, 0, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.new(1,1,1)
+    label.Text = text
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+
+    if icon then
+        local image = Instance.new("ImageLabel")
+        image.Size = UDim2.new(0, 40, 0, 40)
+        image.Position = UDim2.new(0, 5, 0.5, -20)
+        image.BackgroundTransparency = 1
+        image.Image = icon
+        image.Parent = frame
+    end
+
+    task.delay(duration, function()
+        screenGui:Destroy()
+    end)
 end
 
 return Library
