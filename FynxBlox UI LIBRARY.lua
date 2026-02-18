@@ -1,7 +1,6 @@
 --[[ 
-    UI LIBRARY - INSTANT UGC
-    Refactored / Fixed
-    Original Credits: FynxBlox
+    UI LIBRARY - INSTANT UGC (PRO REFACTOR)
+    Features: Smooth Tweens, Auto-Stacking Notifications, Modern Toggles
 ]]
 
 local Library = {}
@@ -9,215 +8,56 @@ local Library = {}
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local Player = Players.LocalPlayer
+local Mouse = Player:GetMouse()
 
--- ================= LIBRARY LOGIC =================
+-- Default Theme / Constants
+local COLORS = {
+    Background = Color3.fromRGB(25, 25, 25),
+    Section = Color3.fromRGB(35, 35, 35),
+    Accent = Color3.fromRGB(60, 60, 65),
+    Text = Color3.fromRGB(240, 240, 240),
+    ToggleOn = Color3.fromRGB(0, 200, 100),
+    ToggleOff = Color3.fromRGB(200, 50, 50)
+}
 
-function Library:CreateWindow(Config)
-    Config = Config or {}
+-- ================= NOTIFICATION SYSTEM =================
 
-    local Window = {}
-    local TitleText = Config.Title or "UI Library"
-    local CreatorName = Config.Creator or "Credits: FynxBlox"
+local function GetNotifyContainer(position)
+    local playerGui = Player:WaitForChild("PlayerGui")
+    local screenName = "LibraryNotifs_" .. position
+    local screenGui = playerGui:FindFirstChild(screenName)
 
-    -- ScreenGui
-    local Gui = Instance.new("ScreenGui")
-    Gui.Name = "CustomLibrary"
-    Gui.ResetOnSpawn = false
-    Gui.IgnoreGuiInset = true
-    Gui.Parent = Player:WaitForChild("PlayerGui")
+    if not screenGui then
+        screenGui = Instance.new("ScreenGui")
+        screenGui.Name = screenName
+        screenGui.Parent = playerGui
 
-    -- Main Frame
-    local Main = Instance.new("Frame")
-    Main.Name = "MainFrame"
-    Main.Size = UDim2.new(0, 200, 0, 36)
-    Main.Position = UDim2.new(0.5, -100, 0.35, 0)
-    Main.BackgroundColor3 = Color3.fromRGB(25,25,25)
-    Main.BorderSizePixel = 0
-    Main.Active = true
-    Main.Parent = Gui
+        local container = Instance.new("Frame")
+        container.Name = "Container"
+        container.Size = UDim2.new(0, 280, 1, -40)
+        container.BackgroundTransparency = 1
+        container.Parent = screenGui
 
-    Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
+        local layout = Instance.new("UIListLayout")
+        layout.Padding = UDim.new(0, 8)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+        layout.Parent = container
 
-    -- Header
-    local Header = Instance.new("TextButton")
-    Header.Parent = Main
-    Header.Size = UDim2.new(1, -10, 0, 36)
-    Header.Position = UDim2.new(0, 5, 0, 0)
-    Header.BackgroundTransparency = 1
-    Header.Text = TitleText
-    Header.Font = Enum.Font.GothamBold
-    Header.TextSize = 12
-    Header.TextColor3 = Color3.fromRGB(235,235,235)
-    Header.TextXAlignment = Enum.TextXAlignment.Left
-
-    -- Content
-    local Content = Instance.new("Frame")
-    Content.Parent = Main
-    Content.Name = "Content"
-    Content.Position = UDim2.new(0, 0, 0, 36)
-    Content.Size = UDim2.new(1, 0, 0, 0)
-    Content.BackgroundColor3 = Color3.fromRGB(35,35,35)
-    Content.BorderSizePixel = 0
-    Content.Visible = false
-    Content.ClipsDescendants = true
-
-    Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 8)
-
-    -- Layout
-    local UIList = Instance.new("UIListLayout", Content)
-    UIList.Padding = UDim.new(0, 4)
-    UIList.SortOrder = Enum.SortOrder.LayoutOrder
-    UIList.HorizontalAlignment = Enum.HorizontalAlignment.Center
-
-    local UIPadding = Instance.new("UIPadding", Content)
-    UIPadding.PaddingTop = UDim.new(0, 6)
-    UIPadding.PaddingBottom = UDim.new(0, 6)
-
-    -- Credits
-    local Credits = Instance.new("TextLabel")
-    Credits.Parent = Main
-    Credits.Size = UDim2.new(1, -8, 0, 17)
-    Credits.Position = UDim2.new(0, 4, 1, -18)
-    Credits.BackgroundTransparency = 1
-    Credits.Text = CreatorName
-    Credits.Font = Enum.Font.Gotham
-    Credits.TextSize = 11
-    Credits.TextXAlignment = Enum.TextXAlignment.Right
-
-    -- Rainbow Credits
-    task.spawn(function()
-        while Gui.Parent do
-            local hue = (tick() % 5) / 5
-            Credits.TextColor3 = Color3.fromHSV(hue,1,1)
-            RunService.RenderStepped:Wait()
-        end
-    end)
-
-    -- Dragging
-    local dragging = false
-    local dragInput
-    local dragStart
-    local startPos
-
-    local function update(input)
-        local delta = input.Position - dragStart
-        Main.Position = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + delta.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
-        )
-    end
-
-    Header.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-
-            dragging = true
-            dragStart = input.Position
-            startPos = Main.Position
-
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-
-    Header.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement
-        or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
-        end
-    end)
-
-    UIS.InputChanged:Connect(function(input)
-        if dragging and input == dragInput then
-            update(input)
-        end
-    end)
-
-    -- Toggle
-    local toggled = false
-
-    local function UpdateSize()
-        local contentHeight = UIList.AbsoluteContentSize.Y + 12
-
-        if toggled then
-            Content.Visible = true
-            Content.Size = UDim2.new(1,0,0,contentHeight)
-            Main.Size = UDim2.new(0,200,0,36 + contentHeight + 14)
-            Credits.Position = UDim2.new(0,4,1,-14)
+        if position:find("Left") then
+            container.Position = UDim2.new(0, 20, 0, 20)
         else
-            Content.Visible = false
-            Main.Size = UDim2.new(0,200,0,36)
+            container.Position = UDim2.new(1, -300, 0, 20)
+        end
+
+        if position:find("Bottom") then
+            layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+            container.Position = UDim2.new(container.Position.X.Scale, container.Position.X.Offset, 0, -20)
         end
     end
-
-    UIList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        if toggled then
-            UpdateSize()
-        end
-    end)
-
-    Header.MouseButton1Click:Connect(function()
-        toggled = not toggled
-        UpdateSize()
-    end)
-
-    -- Add Button
-    function Window:AddButton(text, callback)
-        local btn = Instance.new("TextButton")
-        btn.Parent = Content
-        btn.Size = UDim2.new(1,-12,0,28)
-        btn.BackgroundColor3 = Color3.fromRGB(55,55,55)
-        btn.Text = text
-        btn.Font = Enum.Font.Gotham
-        btn.TextSize = 11
-        btn.TextColor3 = Color3.fromRGB(220,220,220)
-        btn.BorderSizePixel = 0
-
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0,6)
-
-        btn.MouseButton1Click:Connect(function()
-            if callback then
-                local ok, err = pcall(callback)
-                if not ok then
-                    warn(err)
-                end
-            end
-        end)
-    end
-
-function Window:AddToggle(text, default, callback)
-    local toggled = default or false
-
-    local ToggleButton = Instance.new("TextButton")
-    ToggleButton.Size = UDim2.new(1, 0, 0, 30)
-    ToggleButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    ToggleButton.TextColor3 = Color3.new(1,1,1)
-    ToggleButton.Text = text .. " : " .. (toggled and "ON" or "OFF")
-    ToggleButton.Parent = Content
-
-    ToggleButton.MouseButton1Click:Connect(function()
-        toggled = not toggled
-        ToggleButton.Text = text .. " : " .. (toggled and "ON" or "OFF")
-
-        if callback then
-            callback(toggled)
-        end
-    end)
-end
-  
-    -- Update Title
-    function Window:UpdateTitle(newTitle)
-        Header.Text = tostring(newTitle)
-    end
-
-    return Window
+    return screenGui.Container
 end
 
 function Library:Notify(options)
@@ -225,49 +65,209 @@ function Library:Notify(options)
     local duration = options.Duration or 3
     local icon = options.Icon
     local position = options.Position or "BottomRight"
-
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "CustomNotification"
-    screenGui.Parent = game.Players.LocalPlayer.PlayerGui
-
+    
+    local container = GetNotifyContainer(position)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 250, 0, 60)
-    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    frame.BorderSizePixel = 0
-    frame.Parent = screenGui
+    frame.Size = UDim2.new(1, 0, 0, 0)
+    frame.BackgroundColor3 = COLORS.Background
+    frame.ClipsDescendants = true
+    frame.Parent = container
 
-    -- Position logic
-    if position == "TopLeft" then
-        frame.Position = UDim2.new(0, 10, 0, 10)
-    elseif position == "TopRight" then
-        frame.Position = UDim2.new(1, -260, 0, 10)
-    elseif position == "BottomLeft" then
-        frame.Position = UDim2.new(0, 10, 1, -70)
-    else -- BottomRight default
-        frame.Position = UDim2.new(1, -260, 1, -70)
-    end
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", frame).Color = COLORS.Accent
 
     local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -60, 1, 0)
-    label.Position = UDim2.new(0, 50, 0, 0)
+    label.Size = UDim2.new(1, icon and -50 or -20, 1, 0)
+    label.Position = UDim2.new(0, icon and 45 or 10, 0, 0)
     label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.new(1,1,1)
+    label.TextColor3 = COLORS.Text
+    label.TextSize = 13
+    label.Font = Enum.Font.GothamMedium
     label.Text = text
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = frame
 
     if icon then
-        local image = Instance.new("ImageLabel")
-        image.Size = UDim2.new(0, 40, 0, 40)
-        image.Position = UDim2.new(0, 5, 0.5, -20)
-        image.BackgroundTransparency = 1
-        image.Image = icon
-        image.Parent = frame
+        local img = Instance.new("ImageLabel")
+        img.Size = UDim2.new(0, 24, 0, 24)
+        img.Position = UDim2.new(0, 10, 0.5, -12)
+        img.BackgroundTransparency = 1
+        img.Image = icon
+        img.Parent = frame
     end
 
+    -- Animate In
+    TweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Back), {Size = UDim2.new(1, 0, 0, 45)}):Play()
+
     task.delay(duration, function()
-        screenGui:Destroy()
+        local out = TweenService:Create(frame, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1})
+        out:Play()
+        out.Completed:Wait()
+        frame:Destroy()
     end)
+end
+
+-- ================= WINDOW LOGIC =================
+
+function Library:CreateWindow(Config)
+    Config = Config or {}
+    local Window = {}
+    local toggled = false
+
+    local Gui = Instance.new("ScreenGui")
+    Gui.Name = "CustomLibrary"
+    Gui.ResetOnSpawn = false
+    Gui.Parent = Player:WaitForChild("PlayerGui")
+
+    local Main = Instance.new("Frame")
+    Main.Name = "MainFrame"
+    Main.Size = UDim2.new(0, 210, 0, 40)
+    Main.Position = UDim2.new(0.5, -105, 0.3, 0)
+    Main.BackgroundColor3 = COLORS.Background
+    Main.BorderSizePixel = 0
+    Main.ClipsDescendants = true
+    Main.Parent = Gui
+
+    Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
+    local Stroke = Instance.new("UIStroke", Main)
+    Stroke.Color = COLORS.Accent
+    Stroke.Thickness = 1.5
+
+    local Header = Instance.new("TextButton")
+    Header.Size = UDim2.new(1, 0, 0, 40)
+    Header.BackgroundTransparency = 1
+    Header.Text = "  " .. (Config.Title or "UI Library")
+    Header.Font = Enum.Font.GothamBold
+    Header.TextSize = 14
+    Header.TextColor3 = COLORS.Text
+    Header.TextXAlignment = Enum.TextXAlignment.Left
+    Header.Parent = Main
+
+    local Content = Instance.new("Frame")
+    Content.Name = "Content"
+    Content.Position = UDim2.new(0, 0, 0, 40)
+    Content.Size = UDim2.new(1, 0, 0, 0)
+    Content.BackgroundTransparency = 1
+    Content.Visible = false
+    Content.Parent = Main
+
+    local UIList = Instance.new("UIListLayout", Content)
+    UIList.Padding = UDim.new(0, 5)
+    UIList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+    Instance.new("UIPadding", Content).PaddingTop = UDim.new(0, 8)
+
+    local Credits = Instance.new("TextLabel")
+    Credits.Size = UDim2.new(1, -10, 0, 20)
+    Credits.Position = UDim2.new(0, 0, 1, -20)
+    Credits.BackgroundTransparency = 1
+    Credits.Text = Config.Creator or "Credits: FynxBlox"
+    Credits.Font = Enum.Font.Gotham
+    Credits.TextSize = 10
+    Credits.TextXAlignment = Enum.TextXAlignment.Right
+    Credits.Parent = Main
+
+    -- Rainbow Loop
+    task.spawn(function()
+        while Gui.Parent do
+            local hue = (os.clock() % 5) / 5
+            Credits.TextColor3 = Color3.fromHSV(hue, 0.8, 1)
+            RunService.RenderStepped:Wait()
+        end
+    end)
+
+    -- Dragging Logic
+    local dragging, dragInput, dragStart, startPos
+    Header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = Main.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    -- Smooth Toggle Window
+    local function UpdateSize()
+        local targetContentHeight = UIList.AbsoluteContentSize.Y + 20
+        local targetMainHeight = toggled and (40 + targetContentHeight + 20) or 40
+        
+        Content.Visible = true -- Keep visible for tween
+        TweenService:Create(Main, TweenInfo.new(0.4, Enum.EasingStyle.Quart), {Size = UDim2.new(0, 210, 0, targetMainHeight)}):Play()
+        TweenService:Create(Content, TweenInfo.new(0.4), {Size = UDim2.new(1, 0, 0, targetContentHeight)}):Play()
+    end
+
+    Header.MouseButton1Click:Connect(function()
+        toggled = not toggled
+        UpdateSize()
+    end)
+
+    -- Elements
+    function Window:AddButton(text, callback)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, 190, 0, 30)
+        btn.BackgroundColor3 = COLORS.Section
+        btn.Text = text
+        btn.Font = Enum.Font.Gotham
+        btn.TextSize = 12
+        btn.TextColor3 = COLORS.Text
+        btn.Parent = Content
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+
+        btn.MouseButton1Click:Connect(function()
+            pcall(callback)
+            -- Click animation
+            TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = COLORS.Accent}):Play()
+            task.wait(0.1)
+            TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = COLORS.Section}):Play()
+        end)
+    end
+
+    function Window:AddToggle(text, default, callback)
+        local currState = default or false
+        
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, 190, 0, 32)
+        btn.BackgroundColor3 = COLORS.Section
+        btn.Text = "  " .. text
+        btn.Font = Enum.Font.Gotham
+        btn.TextSize = 12
+        btn.TextColor3 = COLORS.Text
+        btn.TextXAlignment = Enum.TextXAlignment.Left
+        btn.Parent = Content
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+
+        local indicator = Instance.new("Frame")
+        indicator.Size = UDim2.new(0, 30, 0, 16)
+        indicator.Position = UDim2.new(1, -40, 0.5, -8)
+        indicator.BackgroundColor3 = currState and COLORS.ToggleOn or COLORS.ToggleOff
+        indicator.Parent = btn
+        Instance.new("UICorner", indicator).CornerRadius = UDim.new(1, 0)
+
+        local dot = Instance.new("Frame")
+        dot.Size = UDim2.new(0, 12, 0, 12)
+        dot.Position = UDim2.new(currState and 0.55 or 0.1, 0, 0.5, -6)
+        dot.BackgroundColor3 = Color3.new(1,1,1)
+        dot.Parent = indicator
+        Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+
+        btn.MouseButton1Click:Connect(function()
+            currState = not currState
+            TweenService:Create(indicator, TweenInfo.new(0.2), {BackgroundColor3 = currState and COLORS.ToggleOn or COLORS.ToggleOff}):Play()
+            TweenService:Create(dot, TweenInfo.new(0.2), {Position = UDim2.new(currState and 0.55 or 0.1, 0, 0.5, -6)}):Play()
+            pcall(callback, currState)
+        end)
+    end
+
+    return Window
 end
 
 return Library
